@@ -24,8 +24,8 @@ st.set_page_config(page_title="UPI Pulse", page_icon="📈", layout="wide")
 def load_data():
     df = pd.read_csv(METRICS_CSV, parse_dates=["month"])
     # Friendlier units for charts: billions of transactions, lakh crore rupees
-    df["volume_bn"] = df["volume_mn"] / 1000
-    df["value_lakh_cr"] = df["value_cr"] / 100000
+    df["volume_bn"] = (df["volume_mn"] / 1000).round(2)
+    df["value_lakh_cr"] = (df["value_cr"] / 100000).round(2)
     return df
 
 
@@ -89,31 +89,40 @@ else:
 
 
 # ---------- Charts ----------
+# Friendly column names, so the hover tooltips read well
+chart = view.rename(columns={
+    "month": "Month",
+    "volume_bn": "Transactions (bn)",
+    "value_lakh_cr": "Value (₹ lakh cr)",
+    "avg_ticket_rs": "Average payment (₹)",
+    "volume_yoy_pct": "Transactions",
+    "value_yoy_pct": "Value",
+})
+
 left, right = st.columns(2)
 
 with left:
     st.subheader("Monthly transactions")
-    st.line_chart(view, x="month", y="volume_bn", color=BLUE,
+    st.line_chart(chart, x="Month", y="Transactions (bn)", color=BLUE,
                   x_label="", y_label="Transactions (billion)")
 
     st.subheader("Growth vs same month last year")
-    growth = view[["month", "volume_yoy_pct", "value_yoy_pct"]].dropna()
-    growth = growth.rename(columns={"volume_yoy_pct": "Transactions",
-                                    "value_yoy_pct": "Value"})
+    growth = chart[["Month", "Transactions", "Value"]].dropna()
     if growth.empty:
         st.info("Needs at least 13 months of data.")
     else:
-        st.line_chart(growth, x="month", y=["Transactions", "Value"],
+        st.line_chart(growth, x="Month", y=["Transactions", "Value"],
                       color=[BLUE, ORANGE], x_label="", y_label="Growth (%)")
 
 with right:
     st.subheader("Monthly value")
-    st.line_chart(view, x="month", y="value_lakh_cr", color=BLUE,
+    st.line_chart(chart, x="Month", y="Value (₹ lakh cr)", color=BLUE,
                   x_label="", y_label="Value (₹ lakh crore)")
 
     st.subheader("Average payment size")
-    st.line_chart(view, x="month", y="avg_ticket_rs", color=BLUE,
+    st.line_chart(chart, x="Month", y="Average payment (₹)", color=BLUE,
                   x_label="", y_label="Average payment (₹)")
+
 
 
 # ---------- Full table ----------
