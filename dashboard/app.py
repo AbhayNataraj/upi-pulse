@@ -20,7 +20,7 @@ st.set_page_config(page_title="UPI Pulse", page_icon="📈", layout="wide")
 
 
 # ---------- Load data ----------
-@st.cache_data
+@st.cache_data(ttl=3600)  # cache for an hour, since the data is updated monthly
 def load_data():
     df = pd.read_csv(METRICS_CSV, parse_dates=["month"])
     # Friendlier units for charts: billions of transactions, lakh crore rupees

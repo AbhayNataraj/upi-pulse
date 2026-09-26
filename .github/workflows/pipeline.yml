@@ -1,0 +1,65 @@
+name: UPI Pulse pipeline
+
+# When it runs:
+# 1. whenever you push a change inside data/landing (a new NPCI file)
+# 2. whenever you click "Run workflow" on the Actions tab
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/landing/**"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Send the email even if there is no new month"
+        type: boolean
+        default: false
+
+# Lets the workflow save the updated CSVs back to the repo
+permissions:
+  contents: write
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install packages
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Extract and clean
+        run: python pipeline/extract_clean.py
+
+      - name: Check for a new month
+        id: check
+        run: python pipeline/check_new_month.py
+
+      - name: Load into DuckDB
+        run: python pipeline/load.py
+
+      - name: Build metrics
+        run: python pipeline/transform.py
+
+      - name: Send email
+        if: steps.check.outputs.new_month == 'true' || inputs.force
+        env:
+          GMAIL_ADDRESS: ${{ secrets.GMAIL_ADDRESS }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python pipeline/notify.py
+
+      - name: Save updated data to the repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/processed
+          git diff --staged --quiet || git commit -m "Update UPI data [automated]"
+          git push
